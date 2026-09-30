@@ -1,0 +1,2100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HomePulse AI — Smart Real Estate & Public Disclosure Finder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- iOS PWA & Mobile Web App Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="HomePulse">
+  <link rel="apple-touch-icon" href="https://placehold.co/180x180/059669/ffffff?text=HomePulse">
+
+  <!-- Leaflet CSS & JS for interactive maps and radius circles -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              800: '#065f46',
+              900: '#064e3b',
+            },
+            accent: {
+              500: '#3b82f6',
+              600: '#2563eb',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    .leaflet-popup-content-wrapper {
+      padding: 0;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+    .leaflet-popup-content {
+      margin: 0;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="resetToHome()">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-200">
+          <i data-lucide="shield-check" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <span class="font-display font-extrabold text-xl tracking-tight text-slate-900 flex items-center gap-1.5">
+            HomePulse <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold uppercase tracking-wider">AI Due Diligence</span>
+          </span>
+          <p class="text-xs text-slate-500 hidden sm:block">Public Disclosures • Hazard Risk • AI Pros & Cons</p>
+        </div>
+      </div>
+
+      <!-- Center Rent/Buy Mode Quick Switch -->
+      <div class="hidden md:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+        <button id="nav-btn-buy" onclick="setMode('buy')" class="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white text-slate-900 shadow-xs">
+          Buy Property
+        </button>
+        <button id="nav-btn-rent" onclick="setMode('rent')" class="px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition-all">
+          Rent Home
+        </button>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex items-center space-x-3">
+        <button onclick="toggleIosInstallModal()" class="flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition" title="Install on iPhone">
+          <i data-lucide="smartphone" class="w-4 h-4 text-emerald-600"></i>
+          <span class="hidden sm:inline">Install on iOS</span>
+        </button>
+
+        <button onclick="toggleCompareDrawer()" class="relative flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition">
+          <i data-lucide="scale" class="w-4 h-4 text-emerald-600"></i>
+          <span>Compare</span>
+          <span id="compare-badge" class="hidden ml-1 px-1.5 py-0.2 bg-emerald-600 text-white rounded-full text-[10px] font-bold">0</span>
+        </button>
+
+        <button onclick="toggleSavedModal()" class="relative flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition">
+          <i data-lucide="heart" class="w-4 h-4 text-rose-500"></i>
+          <span>Saved</span>
+          <span id="saved-badge" class="hidden ml-1 px-1.5 py-0.2 bg-rose-500 text-white rounded-full text-[10px] font-bold">0</span>
+        </button>
+
+        <button onclick="openApiSettingsModal()" class="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition" title="AI Settings">
+          <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <section class="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-4 shadow-xs">
+    <div class="max-w-7xl mx-auto space-y-3">
+      <!-- Search Input Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+        <!-- Location input -->
+        <div class="md:col-span-4 relative">
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Target Address or Area</label>
+          <div class="relative">
+            <i data-lucide="map-pin" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
+            <input type="text" id="input-location" value="San Jose, CA" placeholder="Address, Neighborhood, City, or Zip"
+                   class="w-full pl-9 pr-24 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                   onkeydown="if(event.key === 'Enter') executeSearch()">
+            <button onclick="useCurrentLocation()" class="absolute right-2 top-2 px-2 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-lg text-xs font-medium flex items-center gap-1 shadow-2xs">
+              <i data-lucide="crosshair" class="w-3 h-3 text-emerald-600"></i> Near me
+            </button>
+          </div>
+        </div>
+
+        <!-- Radius Slider -->
+        <div class="md:col-span-2">
+          <div class="flex justify-between items-center mb-1">
+            <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Search Radius</label>
+            <span id="radius-val" class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">10 mi</span>
+          </div>
+          <input type="range" id="input-radius" min="1" max="40" value="10" step="1"
+                 class="w-full accent-emerald-600 cursor-pointer"
+                 oninput="updateRadiusLabel(this.value)">
+        </div>
+
+        <!-- Bedrooms & Bathrooms -->
+        <div class="md:col-span-3 grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Bedrooms</label>
+            <select id="select-beds" class="w-full py-2 px-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500">
+              <option value="any">Any Beds</option>
+              <option value="1">1+ Bed</option>
+              <option value="2" selected>2+ Beds</option>
+              <option value="3">3+ Beds</option>
+              <option value="4">4+ Beds</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Bathrooms</label>
+            <select id="select-baths" class="w-full py-2 px-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500">
+              <option value="any">Any Baths</option>
+              <option value="1">1+ Bath</option>
+              <option value="2" selected>2+ Baths</option>
+              <option value="3">3+ Baths</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Action Search Button -->
+        <div class="md:col-span-3 flex items-end gap-2 pt-1 md:pt-5">
+          <button id="btn-search" onclick="executeSearch()" class="flex-1 py-2.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold text-sm rounded-xl shadow-md shadow-emerald-200 flex items-center justify-center space-x-2 transition cursor-pointer">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+            <span>Scan & Verify Disclosures</span>
+          </button>
+          <button onclick="toggleAdvancedFilters()" class="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl border border-slate-200 transition" title="Toggle extra filters">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Home Type Pill Filter Bar -->
+      <div class="pt-2 border-t border-slate-100 flex items-center gap-2 overflow-x-auto pb-1 text-xs no-scrollbar">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 shrink-0 flex items-center gap-1">
+          <i data-lucide="home" class="w-3.5 h-3.5 text-emerald-600"></i> Home Type:
+        </span>
+        <button onclick="selectHomeTypeFilter('any')" id="chip-type-any" class="home-type-chip px-3 py-1 rounded-full text-xs font-semibold shrink-0 transition bg-emerald-600 text-white shadow-2xs">
+          All Types
+        </button>
+        <button onclick="selectHomeTypeFilter('single-family')" id="chip-type-single-family" class="home-type-chip px-3 py-1 rounded-full text-xs font-medium shrink-0 transition bg-slate-100 hover:bg-slate-200 text-slate-700">
+          🏡 Single Family
+        </button>
+        <button onclick="selectHomeTypeFilter('condo')" id="chip-type-condo" class="home-type-chip px-3 py-1 rounded-full text-xs font-medium shrink-0 transition bg-slate-100 hover:bg-slate-200 text-slate-700">
+          🏢 Condo / Co-op
+        </button>
+        <button onclick="selectHomeTypeFilter('townhouse')" id="chip-type-townhouse" class="home-type-chip px-3 py-1 rounded-full text-xs font-medium shrink-0 transition bg-slate-100 hover:bg-slate-200 text-slate-700">
+          🏘️ Townhouse
+        </button>
+        <button onclick="selectHomeTypeFilter('duplex')" id="chip-type-duplex" class="home-type-chip px-3 py-1 rounded-full text-xs font-medium shrink-0 transition bg-slate-100 hover:bg-slate-200 text-slate-700">
+          ⚖️ Duplex
+        </button>
+        <button onclick="selectHomeTypeFilter('multi-family')" id="chip-type-multi-family" class="home-type-chip px-3 py-1 rounded-full text-xs font-medium shrink-0 transition bg-slate-100 hover:bg-slate-200 text-slate-700">
+          🏙️ Multi-Family (2-4 Units)
+        </button>
+        <button onclick="selectHomeTypeFilter('manufactured')" id="chip-type-manufactured" class="home-type-chip px-3 py-1 rounded-full text-xs font-medium shrink-0 transition bg-slate-100 hover:bg-slate-200 text-slate-700">
+          🏕️ Manufactured / Mobile
+        </button>
+        <button onclick="selectHomeTypeFilter('loft')" id="chip-type-loft" class="home-type-chip px-3 py-1 rounded-full text-xs font-medium shrink-0 transition bg-slate-100 hover:bg-slate-200 text-slate-700">
+          🌆 Loft / Studio
+        </button>
+        <button onclick="selectHomeTypeFilter('estate')" id="chip-type-estate" class="home-type-chip px-3 py-1 rounded-full text-xs font-medium shrink-0 transition bg-slate-100 hover:bg-slate-200 text-slate-700">
+          🏰 Luxury Estate
+        </button>
+      </div>
+
+      <!-- Quick Location Presets & Advanced Drawer -->
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-slate-400 font-medium">Quick Presets:</span>
+          <button onclick="applyPresetLocation('San Jose, CA', 37.3382, -121.8863)" class="px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 rounded-md text-slate-600 transition font-medium">San Jose, CA</button>
+          <button onclick="applyPresetLocation('Austin, TX', 30.2672, -97.7431)" class="px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 rounded-md text-slate-600 transition font-medium">Austin, TX</button>
+          <button onclick="applyPresetLocation('Seattle, WA', 47.6062, -122.3321)" class="px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 rounded-md text-slate-600 transition font-medium">Seattle, WA</button>
+          <button onclick="applyPresetLocation('Chicago, IL', 41.8781, -87.6298)" class="px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 rounded-md text-slate-600 transition font-medium">Chicago, IL</button>
+          <button onclick="applyPresetLocation('Denver, CO', 39.7392, -104.9903)" class="px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 rounded-md text-slate-600 transition font-medium">Denver, CO</button>
+        </div>
+        <div class="flex items-center gap-3 text-slate-500">
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> FEMA Flood Checks</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-teal-500"></span> HOA Bylaws & Rules</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-500"></span> Permit & Tax History</span>
+        </div>
+      </div>
+
+      <!-- Advanced Filter Expandable Section -->
+      <div id="advanced-filters" class="hidden border-t border-slate-200 pt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Max Budget</label>
+          <select id="select-budget" class="w-full py-2 px-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium">
+            <option value="any">No Limit</option>
+            <option value="800000">$800k (or $3.2k/mo)</option>
+            <option value="1200000" selected>$1.2M (or $4.5k/mo)</option>
+            <option value="1800000">$1.8M (or $6k/mo)</option>
+            <option value="2500000">$2.5M+</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Property Type</label>
+          <select id="select-type" onchange="syncHomeTypeFromSelect(this.value)" class="w-full py-2 px-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium">
+            <option value="any">All Property Types</option>
+            <option value="single-family">Single Family Home (Detached)</option>
+            <option value="townhouse">Townhouse</option>
+            <option value="condo">Condo / Co-op</option>
+            <option value="duplex">Duplex (2 Units)</option>
+            <option value="multi-family">Multi-Family (2-4 Units)</option>
+            <option value="manufactured">Manufactured / Mobile Home</option>
+            <option value="loft">Loft / Studio Apartment</option>
+            <option value="estate">Luxury Estate / Villa</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">HOA Requirement</label>
+          <select id="select-hoa" class="w-full py-2 px-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium">
+            <option value="any">Any (HOA or No HOA)</option>
+            <option value="no-hoa">No HOA Only</option>
+            <option value="low-hoa">Low HOA (< $250/mo)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Natural Hazard Filter</label>
+          <select id="select-hazard" class="w-full py-2 px-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium">
+            <option value="any">Show All Risks</option>
+            <option value="safe-flood">Minimal Flood Zone (Zone X) only</option>
+            <option value="low-wildfire">Low Wildfire Hazard only</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col">
+    <!-- Results Status Bar -->
+    <div class="flex flex-wrap items-center justify-between pb-3 text-sm border-b border-slate-200">
+      <div class="flex items-center space-x-2">
+        <span id="results-count" class="font-bold text-slate-900">Loading listings...</span>
+        <span class="text-slate-400">•</span>
+        <span id="current-criteria-summary" class="text-slate-600 text-xs">Within 10 miles of San Jose, CA</span>
+      </div>
+
+      <div class="flex items-center space-x-2 text-xs">
+        <span class="text-slate-500 font-medium">Sort by:</span>
+        <select id="select-sort" onchange="sortListings(this.value)" class="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-700 focus:outline-hidden">
+          <option value="score">AI Safety & Value Score</option>
+          <option value="price-asc">Price: Low to High</option>
+          <option value="price-desc">Price: High to Low</option>
+          <option value="sqft">Largest SqFt</option>
+          <option value="year">Newest Build</option>
+        </select>
+
+        <!-- View mode toggle buttons -->
+        <div class="hidden sm:flex border border-slate-300 rounded-lg overflow-hidden">
+          <button id="view-btn-split" onclick="setViewMode('split')" class="px-2.5 py-1 bg-slate-200 text-slate-800 font-medium" title="Split view">
+            <i data-lucide="columns" class="w-3.5 h-3.5"></i>
+          </button>
+          <button id="view-btn-list" onclick="setViewMode('list')" class="px-2.5 py-1 bg-white text-slate-600 hover:bg-slate-50" title="List only">
+            <i data-lucide="list" class="w-3.5 h-3.5"></i>
+          </button>
+          <button id="view-btn-map" onclick="setViewMode('map')" class="px-2.5 py-1 bg-white text-slate-600 hover:bg-slate-50" title="Map only">
+            <i data-lucide="map" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Layout Grid: Listings & Map -->
+    <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 mt-4 min-h-[600px]">
+      
+      <div id="listings-container-col" class="lg:col-span-7 flex flex-col space-y-4 overflow-y-auto max-h-[calc(100vh-270px)] pr-1">
+        <!-- AI Discovery Banner -->
+        <div id="ai-status-card" class="bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-200/80 rounded-2xl p-4 shadow-2xs flex items-start justify-between">
+          <div class="flex items-start space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <i data-lucide="brain-circuit" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-display font-bold text-sm text-slate-900 flex items-center gap-1.5">
+                AI Public Record & Disclosure Audit Active
+              </h3>
+              <p id="ai-status-desc" class="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                Scanned municipal zoning registries, FEMA flood elevation certificates, permits database, and neighborhood environmental reports.
+              </p>
+            </div>
+          </div>
+          <button onclick="requestDeepAiScan()" id="btn-deep-scan" class="shrink-0 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-xs transition">
+            <i data-lucide="refresh-cw" class="w-3 h-3"></i> AI Re-Audit
+          </button>
+        </div>
+
+        <!-- Homes Cards Grid -->
+        <div id="cards-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Populated by JavaScript -->
+        </div>
+
+        <!-- Empty State (hidden by default) -->
+        <div id="empty-state" class="hidden flex-col items-center justify-center py-16 px-4 text-center bg-white rounded-2xl border border-slate-200">
+          <div class="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
+            <i data-lucide="search-x" class="w-7 h-7"></i>
+          </div>
+          <h4 class="font-display font-bold text-base text-slate-800">No properties matched this radius & criteria</h4>
+          <p class="text-xs text-slate-500 max-w-sm mt-1">Try expanding the search radius slider, changing bedroom criteria, or loosening the HOA/hazard filter.</p>
+          <button onclick="resetFilters()" class="mt-4 px-4 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-xl">Reset Search Filters</button>
+        </div>
+      </div>
+
+      <div id="map-container-col" class="lg:col-span-5 flex flex-col h-[400px] lg:h-[calc(100vh-270px)] sticky top-24">
+        <div class="relative w-full h-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100 flex flex-col">
+          <div id="map" class="w-full h-full z-10"></div>
+          
+          <!-- Map Overlay Badges -->
+          <div class="absolute top-3 left-3 z-20 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200 shadow-md text-xs font-semibold flex items-center space-x-2">
+            <i data-lucide="radar" class="w-4 h-4 text-emerald-600 animate-pulse"></i>
+            <span id="map-radius-badge">10 Mile Radius Zone</span>
+          </div>
+
+          <div class="absolute bottom-3 left-3 z-20 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-slate-200 text-[11px] text-slate-600 shadow-xs flex items-center gap-3">
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Verified Safe</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Caution / Advisory</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> High Risk Flag</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <div id="property-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="bg-white w-full max-w-4xl max-h-[92vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Modal Header -->
+      <div class="p-5 border-b border-slate-200 flex items-start justify-between bg-slate-50/50">
+        <div>
+          <div class="flex items-center gap-2 flex-wrap mb-1">
+            <span id="modal-badge-type" class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-200 text-slate-700">Single Family</span>
+            <span id="modal-badge-mode" class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">For Sale</span>
+            <span id="modal-badge-risk" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-800 flex items-center gap-1">
+              <i data-lucide="shield" class="w-3 h-3"></i> Clear Disclosures
+            </span>
+          </div>
+          <h2 id="modal-address" class="text-xl sm:text-2xl font-display font-extrabold text-slate-900">1420 Meridian Ave, San Jose, CA 95125</h2>
+          <p id="modal-specs" class="text-xs sm:text-sm text-slate-500 mt-0.5">3 Beds • 2 Baths • 1,840 sqft • Built 1994 • 0.18 Acre Lot</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="modal-btn-save" onclick="toggleSaveFromModal()" class="p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 transition" title="Save property">
+            <i data-lucide="heart" class="w-5 h-5"></i>
+          </button>
+          <button onclick="closePropertyModal()" class="p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 transition" title="Close">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="flex-1 overflow-y-auto p-5 sm:p-7 space-y-6">
+        
+        <!-- Image & Primary Financial Snapshot -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
+          <div class="md:col-span-7 rounded-2xl overflow-hidden shadow-sm relative h-64 sm:h-72">
+            <img id="modal-img" src="" alt="Property" class="w-full h-full object-cover">
+            <div class="absolute bottom-3 left-3 bg-slate-900/80 backdrop-blur-md text-white px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2">
+              <i data-lucide="eye" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>County Recorded Photos & Tax Parcel</span>
+            </div>
+          </div>
+
+          <div class="md:col-span-5 bg-slate-50 border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">List Price / Valuation</span>
+              <div id="modal-price" class="text-3xl font-display font-black text-slate-900 mt-1">$1,295,000</div>
+              <p id="modal-est-monthly" class="text-xs text-slate-500 mt-0.5">Est. $6,150/mo (Principal, Tax, Ins, HOA)</p>
+              
+              <div class="mt-4 pt-4 border-t border-slate-200/80 space-y-2 text-xs">
+                <div class="flex justify-between">
+                  <span class="text-slate-500">HOA Dues:</span>
+                  <span id="modal-hoa" class="font-semibold text-slate-800">$0 / month (No HOA)</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Property Tax Est:</span>
+                  <span id="modal-tax" class="font-semibold text-slate-800">1.25% ($16,180/yr)</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Square Foot Value:</span>
+                  <span id="modal-psqft" class="font-semibold text-slate-800">$704 / sqft</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Days on Market:</span>
+                  <span id="modal-dom" class="font-semibold text-slate-800">14 Days</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Health & Safety Index Badge -->
+            <div class="mt-4 p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">
+                  <i data-lucide="check-check" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <div class="text-xs font-bold text-slate-800">Due Diligence Score</div>
+                  <div class="text-[10px] text-slate-500">Overall risk & transparency index</div>
+                </div>
+              </div>
+              <div id="modal-score" class="text-lg font-black text-emerald-600">92 / 100</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 1: Detailed Pros & Cons Assessment -->
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900 flex items-center gap-2 mb-3">
+            <i data-lucide="scale" class="w-5 h-5 text-emerald-600"></i>
+            Objective Pros & Cons Assessment
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Pros List -->
+            <div class="bg-emerald-50/60 border border-emerald-200/70 rounded-2xl p-4">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5 mb-2.5">
+                <i data-lucide="thumbs-up" class="w-4 h-4 text-emerald-600"></i> Notable Pros & Advantages
+              </h4>
+              <ul id="modal-pros" class="space-y-2 text-xs text-slate-700">
+                <!-- Injected via JS -->
+              </ul>
+            </div>
+
+            <!-- Cons / Risks List -->
+            <div class="bg-rose-50/60 border border-rose-200/70 rounded-2xl p-4">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-rose-800 flex items-center gap-1.5 mb-2.5">
+                <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600"></i> Red Flags & Considerations
+              </h4>
+              <ul id="modal-cons" class="space-y-2 text-xs text-slate-700">
+                <!-- Injected via JS -->
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Public Disclosures & Hazard Audit -->
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900 flex items-center gap-2 mb-3">
+            <i data-lucide="file-text" class="w-5 h-5 text-blue-600"></i>
+            Public Records, Environmental & HOA Disclosures
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            
+            <div class="p-3.5 rounded-xl border border-slate-200 bg-white">
+              <div class="text-slate-400 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
+                <i data-lucide="waves" class="w-3.5 h-3.5 text-blue-500"></i> FEMA Flood Risk
+              </div>
+              <div id="modal-disc-flood" class="font-bold text-slate-800 mt-1">Zone X (Minimal Risk)</div>
+              <p class="text-[10px] text-slate-500 mt-1">Outside 100-year flood zone. Mandatory flood insurance not required.</p>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-slate-200 bg-white">
+              <div class="text-slate-400 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
+                <i data-lucide="flame" class="w-3.5 h-3.5 text-orange-500"></i> Wildfire Severity
+              </div>
+              <div id="modal-disc-fire" class="font-bold text-slate-800 mt-1">Moderate Severity Zone</div>
+              <p class="text-[10px] text-slate-500 mt-1">Check home insurance policy availability & brush clearance standards.</p>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-slate-200 bg-white">
+              <div class="text-slate-400 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
+                <i data-lucide="hammer" class="w-3.5 h-3.5 text-indigo-500"></i> Municipal Permits
+              </div>
+              <div id="modal-disc-permits" class="font-bold text-slate-800 mt-1">All Finished With Permits</div>
+              <p class="text-[10px] text-slate-500 mt-1">Kitchen remodel 2021 & HVAC replacement 2019 finalized on city record.</p>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-slate-200 bg-white">
+              <div class="text-slate-400 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
+                <i data-lucide="landmark" class="w-3.5 h-3.5 text-teal-500"></i> HOA Restrictions & Bylaws
+              </div>
+              <div id="modal-disc-hoa-rules" class="font-bold text-slate-800 mt-1">No HOA / No Rental Caps</div>
+              <p class="text-[10px] text-slate-500 mt-1">Full freedom for leasing, long-term tenants, and pet ownership.</p>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Section 3: Interactive AI Due Diligence Assistant for this Property -->
+        <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-5 sm:p-6 shadow-lg">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center space-x-2">
+              <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                <i data-lucide="bot" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h4 class="font-display font-bold text-sm">Ask AI Inspector About This Property</h4>
+                <p class="text-xs text-slate-300">Generate custom inspection checklists, resale risk, or lease yield forecasts</p>
+              </div>
+            </div>
+            <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">Gemini 3 Flash</span>
+          </div>
+
+          <!-- Quick Prompts -->
+          <div class="flex flex-wrap gap-2 mb-3 text-xs">
+            <button onclick="askPropertyInspector('What specific red flags should I look for in the physical home inspection for this year build and location?')" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition text-slate-200">🔍 Inspection checklist</button>
+            <button onclick="askPropertyInspector('Calculate estimated net rental yield and tenant demand in this area.')" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition text-slate-200">📈 Rental yield analysis</button>
+            <button onclick="askPropertyInspector('What are the potential resale risks over the next 5-7 years for this home?')" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition text-slate-200">📉 5-Year resale risk</button>
+          </div>
+
+          <!-- Question Input & Response Area -->
+          <div class="space-y-3">
+            <div class="flex gap-2">
+              <input type="text" id="property-ai-query" placeholder="Ask any question about this disclosure, foundation, zoning, or school district..." 
+                     class="flex-1 bg-white/10 border border-white/20 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-400"
+                     onkeydown="if(event.key === 'Enter') submitPropertyAiQuery()">
+              <button onclick="submitPropertyAiQuery()" id="btn-property-ai-submit" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 font-semibold text-xs rounded-xl transition flex items-center gap-1.5 shrink-0">
+                <i data-lucide="send" class="w-3.5 h-3.5"></i> Ask
+              </button>
+            </div>
+
+            <!-- Response box -->
+            <div id="property-ai-response-box" class="hidden bg-black/30 border border-white/10 rounded-xl p-3.5 text-xs text-slate-200 leading-relaxed max-h-48 overflow-y-auto">
+              <!-- Content streamed here -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+        <div class="text-xs text-slate-500 hidden sm:block">
+          Public data cross-referenced with county tax assesssor & FEMA records.
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <button onclick="downloadPropertySummary()" class="px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i> Export Dossier
+          </button>
+          <button onclick="addToCompareFromModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="scale" class="w-3.5 h-3.5"></i> Add to Comparison
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="compare-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="bg-white w-full max-w-5xl max-h-[92vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+      <div class="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center space-x-2">
+          <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+            <i data-lucide="scale" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-display font-bold text-lg text-slate-900">Side-by-Side Property & Disclosure Comparison</h3>
+            <p class="text-xs text-slate-500">Benchmark environmental hazards, HOA restrictions, and pros/cons</p>
+          </div>
+        </div>
+        <button onclick="toggleCompareDrawer()" class="p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-x-auto overflow-y-auto p-5" id="compare-content">
+        <!-- Injected table via JS -->
+      </div>
+      
+      <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center text-xs">
+        <span class="text-slate-500">You can compare up to 4 homes at once.</span>
+        <button onclick="clearComparison()" class="px-3 py-1.5 text-rose-600 hover:text-rose-800 font-semibold">Clear Comparison List</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="saved-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-3 sm:p-6">
+    <div class="bg-white w-full max-w-2xl max-h-[85vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+      <div class="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+            <i data-lucide="heart" class="w-4 h-4"></i>
+          </div>
+          <h3 class="font-display font-bold text-lg text-slate-900">Bookmarked Properties (<span id="saved-count-text">0</span>)</h3>
+        </div>
+        <button onclick="toggleSavedModal()" class="p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-5 space-y-3" id="saved-list-container">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- iOS Installation Guide Modal -->
+  <div id="ios-install-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+            <i data-lucide="smartphone" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-display font-bold text-sm text-slate-900">Install on your iPhone</h3>
+            <p class="text-[11px] text-slate-500">Run as a standalone full-screen app</p>
+          </div>
+        </div>
+        <button onclick="toggleIosInstallModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3.5 text-xs text-slate-700">
+        <div class="flex items-start space-x-3 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+          <div class="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0">1</div>
+          <p>Open this web page in <strong>Safari</strong> on your iPhone.</p>
+        </div>
+
+        <div class="flex items-start space-x-3 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+          <div class="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0">2</div>
+          <p>Tap the <strong>Share</strong> button <i data-lucide="share" class="w-3.5 h-3.5 inline text-blue-500 mx-0.5"></i> in the bottom menu bar.</p>
+        </div>
+
+        <div class="flex items-start space-x-3 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+          <div class="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0">3</div>
+          <p>Scroll down and select <strong>"Add to Home Screen"</strong> <i data-lucide="plus-square" class="w-3.5 h-3.5 inline text-emerald-600 mx-0.5"></i>.</p>
+        </div>
+
+        <div class="flex items-start space-x-3 p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-900">
+          <div class="w-6 h-6 rounded-full bg-emerald-700 text-white flex items-center justify-center text-xs font-bold shrink-0">4</div>
+          <p>Tap <strong>Add</strong>. It will appear directly on your home screen and open without the Safari URL bar!</p>
+        </div>
+      </div>
+
+      <button onclick="toggleIosInstallModal()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition">
+        Got it!
+      </button>
+    </div>
+  </div>
+
+  <div id="api-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-display font-bold text-base text-slate-900 flex items-center gap-2">
+          <i data-lucide="cpu" class="w-5 h-5 text-emerald-600"></i> AI Engine Configuration
+        </h3>
+        <button onclick="closeApiSettingsModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-500">
+        Powered by Gemini 3 Flash with automated Google Search grounding for real-time county public records and real estate listings.
+      </p>
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Custom Gemini API Key (Optional)</label>
+        <input type="password" id="custom-api-key" placeholder="Default environment key is automatically provided"
+               class="w-full text-xs p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden">
+        <span class="text-[11px] text-slate-400 mt-1 block">Leave empty to use built-in Canvas API key runner.</span>
+      </div>
+      <div class="pt-2 flex justify-end gap-2">
+        <button onclick="closeApiSettingsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl">Close</button>
+        <button onclick="saveApiSettings()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State management
+    const state = {
+      mode: 'buy', // 'buy' or 'rent'
+      location: 'San Jose, CA',
+      centerCoords: [37.3382, -121.8863],
+      radiusMiles: 10,
+      minBeds: 2,
+      minBaths: 2,
+      maxBudget: 1200000,
+      propertyType: 'any',
+      hoaFilter: 'any',
+      hazardFilter: 'any',
+      viewMode: 'split', // 'split', 'list', 'map'
+      sortBy: 'score',
+      properties: [],
+      savedPropertyIds: new Set(),
+      comparePropertyIds: new Set(),
+      activeProperty: null,
+      customApiKey: '',
+    };
+
+    // Leaflet map instance and layers
+    let map = null;
+    let markersLayer = null;
+    let radiusCircleLayer = null;
+
+    // Comprehensive realistic initial property database with authentic disclosures & analysis
+    const sampleProperties = [
+      {
+        id: "prop-sj-1",
+        address: "1420 Meridian Ave, San Jose, CA 95125",
+        city: "San Jose",
+        state: "CA",
+        zip: "95125",
+        lat: 37.3056,
+        lng: -121.9050,
+        priceBuy: 1295000,
+        priceRent: 4350,
+        beds: 3,
+        baths: 2,
+        sqft: 1840,
+        lotSqft: 7840,
+        yearBuilt: 1994,
+        propertyType: "single-family",
+        hoaFee: 0,
+        score: 93,
+        image: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80",
+        pros: [
+          "Recently retrofitted roof with 50-year architectural shingles (2022)",
+          "Top-rated Booksin Elementary school boundary (Rating 9/10)",
+          "Fully detached 2-car garage with installed 240V Level-2 EV charger",
+          "Zero HOA dues and no restrictive covenants"
+        ],
+        cons: [
+          "Meridian Ave experiences moderate morning commuter traffic noise",
+          "Original galvanized plumbing in master bath may need copper/PEX repiping within 3-5 years",
+          "Property tax step-up re-assessment upon purchase (~$16,200/year)"
+        ],
+        disclosures: {
+          floodZone: "Zone X (Minimal Flood Hazard)",
+          floodDetails: "Elevated above 500-year base flood elevation. Flood insurance not federally mandated.",
+          wildfire: "Low Risk Urban Interface",
+          permits: "Permit #2021-04981 on file for 200A electrical panel upgrade and solar tie-in.",
+          hoaRules: "No HOA. Unrestricted rental capability with no leasing cap.",
+          taxes: "County assessment: 1.25% ad valorem + local voter parcel bonds.",
+          leadRadon: "Built in 1994, post-1978 lead paint regulations. Radon test 0.8 pCi/L (well below 4.0 threshold)."
+        }
+      },
+      {
+        id: "prop-sj-2",
+        address: "389 Delmas Ave #304, San Jose, CA 95126",
+        city: "San Jose",
+        state: "CA",
+        zip: "95126",
+        lat: 37.3275,
+        lng: -121.8988,
+        priceBuy: 749000,
+        priceRent: 2950,
+        beds: 2,
+        baths: 2,
+        sqft: 1120,
+        lotSqft: 0,
+        yearBuilt: 2012,
+        propertyType: "condo",
+        hoaFee: 380,
+        score: 88,
+        image: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
+        pros: [
+          "Walking distance to Diridon Caltrain / BART transit hub & SAP Center",
+          "Modern concrete and steel soundproofing between unit floors",
+          "Well-funded HOA reserve fund at 84% recommended statutory level",
+          "HOA covers high-speed fiber internet, trash, and building insurance"
+        ],
+        cons: [
+          "HOA rules enforce 30-day minimum lease duration (no Airbnb/short-term rentals)",
+          "Maximum 2 domestic pets under 35 lbs restriction",
+          "One assigned garage parking spot; secondary spot waitlisted at $120/mo"
+        ],
+        disclosures: {
+          floodZone: "Zone X (Shaded - 500 year)",
+          floodDetails: "Adjacent to Guadalupe River mitigation canal; flood walls updated in 2018.",
+          wildfire: "Very Low Urban Risk",
+          permits: "Commercial grade fire suppression system inspection signed off March 2024.",
+          hoaRules: "Rental cap allows up to 25% leased units; currently at 18% leased.",
+          taxes: "Assessed tax rate: 1.21% + Mello-Roos school district bond.",
+          leadRadon: "2012 construction: Free of asbestos, lead paint, and certified energy star."
+        }
+      },
+      {
+        id: "prop-sj-3",
+        address: "2140 Pine Hollow Way, San Jose, CA 95133",
+        city: "San Jose",
+        state: "CA",
+        zip: "95133",
+        lat: 37.3712,
+        lng: -121.8540,
+        priceBuy: 1088000,
+        priceRent: 3800,
+        beds: 4,
+        baths: 2.5,
+        sqft: 2010,
+        lotSqft: 5200,
+        yearBuilt: 1988,
+        propertyType: "single-family",
+        hoaFee: 65,
+        score: 86,
+        image: "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
+        pros: [
+          "Spacious 4-bedroom layout with ground-floor bedroom and full bath",
+          "Vaulted ceilings with abundant natural south-facing skylights",
+          "Private fenced backyard with mature Haas avocado and Meyer lemon trees",
+          "Modest $65/mo HOA maintains community park and tennis courts"
+        ],
+        cons: [
+          "HVAC dual-zone furnace is original (1988); replacement suggested soon ($9k-$12k)",
+          "Proximity to regional flight path creates occasional daytime ambient sound",
+          "Wood shake accents on exterior require periodic pest treatment"
+        ],
+        disclosures: {
+          floodZone: "Zone X (Minimal Risk)",
+          floodDetails: "High elevation alluvial plain; zero historic flood incidents logged.",
+          wildfire: "Moderate Foothill Proximity",
+          permits: "Water heater replaced with permitted tankless system in 2020.",
+          hoaRules: "HOA strictly enforces front yard landscape maintenance and no street overnight RV parking.",
+          taxes: "Current annual property tax estimate: $13,600.",
+          leadRadon: "Radon tested at 1.1 pCi/L. Pest inspection reported minor drywood termite treatment in 2021."
+        }
+      },
+      {
+        id: "prop-sj-4",
+        address: "880 N 1st St #12, San Jose, CA 95112",
+        city: "San Jose",
+        state: "CA",
+        zip: "95112",
+        lat: 37.3512,
+        lng: -121.8970,
+        priceBuy: 890000,
+        priceRent: 3400,
+        beds: 3,
+        baths: 2.5,
+        sqft: 1540,
+        lotSqft: 1800,
+        yearBuilt: 2006,
+        propertyType: "townhouse",
+        hoaFee: 240,
+        score: 91,
+        image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
+        pros: [
+          "Attached 2-car tandem garage with epoxy flooring and overhead racks",
+          "VTA Light Rail station is 2 blocks away; fast commute to Mountain View / Sunnyvale",
+          "Hardwood flooring installed throughout all levels (no carpeting)",
+          "Low HOA fee includes roof maintenance, exterior paint, and landscaping"
+        ],
+        cons: [
+          "Tri-level living requires climbing multiple flights of stairs daily",
+          "Direct street entrance without a buffer setback yard",
+          "Guest parking is limited to 4 shared spaces across 24 units"
+        ],
+        disclosures: {
+          floodZone: "Zone X (Minimal Risk)",
+          floodDetails: "Federal FIRM Panel 06085C0234H confirms zone X classification.",
+          wildfire: "Low Urban Risk",
+          permits: "All interior modifications comply with Santa Clara Uniform Building Code.",
+          hoaRules: "HOA permits up to 2 domestic pets without breed restrictions. Quiet hours 10 PM - 7 AM.",
+          taxes: "Estimated base property tax: $11,120 per year.",
+          leadRadon: "Constructed 2006. Zero lead or asbestos notices on title."
+        }
+      },
+      {
+        id: "prop-sj-5",
+        address: "1750 Almaden Rd, San Jose, CA 95125",
+        city: "San Jose",
+        state: "CA",
+        zip: "95125",
+        lat: 37.2890,
+        lng: -121.8740,
+        priceBuy: 1450000,
+        priceRent: 4800,
+        beds: 4,
+        baths: 3,
+        sqft: 2280,
+        lotSqft: 8500,
+        yearBuilt: 1978,
+        propertyType: "single-family",
+        hoaFee: 0,
+        score: 84,
+        image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
+        pros: [
+          "Large flat lot with permitted inground swimming pool & spa",
+          "Expansive open floor plan with remodeled chef kitchen & quartz island",
+          "Quiet neighborhood street with mature tree canopy and wide sidewalks",
+          "No HOA dues or property governance committees"
+        ],
+        cons: [
+          "Built in 1978: requires lead-based paint disclosure acknowledgment",
+          "Sewer lateral line is original clay pipe; video inspection recommended before closing",
+          "FEMA Special Flood Hazard Area (SFHA) Zone AE border: lender flood insurance required (~$1,200/yr)"
+        ],
+        disclosures: {
+          floodZone: "Zone AE (100-Year Flood Zone Flag)",
+          floodDetails: "Mandatory flood insurance required by conventional/FHA lenders. Elevation certificate available.",
+          wildfire: "Moderate Foothill Fire Hazard Zone",
+          permits: "Pool resurfaced and safety fence permitted in 2019.",
+          hoaRules: "No HOA. ADU (Accessory Dwelling Unit) zoning pre-approved under CA SB-9.",
+          taxes: "Estimated property taxes: $18,125 per year.",
+          leadRadon: "Lead paint notice provided for 1978 build date. Pool equipment inspected 2023."
+        }
+      },
+      {
+        id: "prop-sj-6",
+        address: "642 Willow Glen Way, San Jose, CA 95125",
+        city: "San Jose",
+        state: "CA",
+        zip: "95125",
+        lat: 37.3115,
+        lng: -121.8920,
+        priceBuy: 1680000,
+        priceRent: 5400,
+        beds: 4,
+        baths: 3,
+        sqft: 2450,
+        lotSqft: 6500,
+        yearBuilt: 1965,
+        propertyType: "duplex",
+        hoaFee: 0,
+        score: 90,
+        image: "https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80",
+        pros: [
+          "Side-by-side duplex setup (2 Bed / 1.5 Bath each) on a single fee-simple parcel",
+          "Separately metered electrical and gas meters for individual tenant billing",
+          "One unit fully remodeled and vacant; great house-hacking or immediate rental opportunity",
+          "No HOA dues or CC&R leasing constraints"
+        ],
+        cons: [
+          "Subject to San Jose Tenant Protection & Apartment Rent Ordinance (ARO)",
+          "Single shared water meter requires owner water bill allocation or sub-metering installation",
+          "Shared driveway easement with neighboring parcel requires clear maintenance agreement"
+        ],
+        disclosures: {
+          floodZone: "Zone X (Minimal Flood Hazard)",
+          floodDetails: "Located outside 500-year flood plain. No flood insurance requirement.",
+          wildfire: "Low Urban Interface Risk",
+          permits: "Unit A kitchen & electrical permit signed off 2022. Unit B un-permitted patio roof removed.",
+          hoaRules: "No HOA. Local rent stabilization ordinance limits annual rent increases to CPI cap.",
+          taxes: "Estimated base county tax: $21,000/yr.",
+          leadRadon: "Pre-1978 structure: Lead-based paint disclosure pamphlet signed on title."
+        }
+      },
+      {
+        id: "prop-sj-7",
+        address: "1098 S 10th St, San Jose, CA 95112",
+        city: "San Jose",
+        state: "CA",
+        zip: "95112",
+        lat: 37.3245,
+        lng: -121.8680,
+        priceBuy: 1890000,
+        priceRent: 6900,
+        beds: 6,
+        baths: 4,
+        sqft: 3100,
+        lotSqft: 7200,
+        yearBuilt: 1982,
+        propertyType: "multi-family",
+        hoaFee: 0,
+        score: 87,
+        image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80",
+        pros: [
+          "Legal Triplex (Three 2-Bed / 1-Bath units) located near San Jose State University",
+          "Consistent historic student/faculty demand with near-zero historical vacancy",
+          "Dedicated 4-car rear carport with secure alley access",
+          "High gross rental yield (~6.8% cap rate potential)"
+        ],
+        cons: [
+          "City multi-unit residential inspection program applies (quadrennial inspections)",
+          "Higher wear-and-tear due to collegiate tenant turnover cycles",
+          "Commercial multi-family loan underwriting requires minimum 25% down payment"
+        ],
+        disclosures: {
+          floodZone: "Zone X (Minimal Risk)",
+          floodDetails: "FIRM Panel 06085C0245H. Zero flood claims in recorded county history.",
+          wildfire: "Very Low Urban Hazard",
+          permits: "All 3 units fully permitted on certificate of occupancy issued 1982.",
+          hoaRules: "No HOA. Rental housing registry fee applicable ($215/unit annually).",
+          taxes: "Estimated annual property taxes: $23,625.",
+          leadRadon: "Post-1978 construction. Annual fire marshal clearance active through Dec 2026."
+        }
+      },
+      {
+        id: "prop-sj-8",
+        address: "450 Blossom Hill Rd #118, San Jose, CA 95123",
+        city: "San Jose",
+        state: "CA",
+        zip: "95123",
+        lat: 37.2512,
+        lng: -121.8410,
+        priceBuy: 295000,
+        priceRent: 1950,
+        beds: 3,
+        baths: 2,
+        sqft: 1440,
+        lotSqft: 0,
+        yearBuilt: 2018,
+        propertyType: "manufactured",
+        hoaFee: 980,
+        score: 89,
+        image: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80",
+        pros: [
+          "Modern 2018 manufactured home with dry-walled 9ft ceilings and crown molding",
+          "Gourmet kitchen with stainless steel appliances, kitchen island, and recessed LED lighting",
+          "Community clubhouse features heated swimming pool, fitness center, and billiard room",
+          "Significantly lower entry purchase price compared to Silicon Valley median"
+        ],
+        cons: [
+          "Monthly space rent of $980/month to park management in addition to home loan",
+          "Chattel/personal property loan rates are typically 1.5% - 2.5% higher than conventional mortgages",
+          "Park management board approval required for buyer residency & criminal/credit screening"
+        ],
+        disclosures: {
+          floodZone: "Zone X (Minimal Risk)",
+          floodDetails: "Safe inland alluvial bench. No flood hazard notification.",
+          wildfire: "Low Urban Interface",
+          permits: "California HCD (Housing & Community Development) tag and HUD insignia intact.",
+          hoaRules: "Park rules limit pets to 2 under 25 lbs. Maximum 2 vehicles parked on space driveway.",
+          taxes: "Classified under California HCD In-Lieu Tax ($240/yr) rather than ad valorem county real property tax.",
+          leadRadon: "HUD-standard modern build (2018). Certified energy-efficient insulation."
+        }
+      }
+    ];
+
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      initLeafletMap();
+      state.properties = [...sampleProperties];
+      renderListings();
+      updateMapPins();
+      updateStats();
+    });
+
+    function initLeafletMap() {
+      try {
+        map = L.map('map', {
+          zoomControl: true,
+          attributionControl: false
+        }).setView(state.centerCoords, 12);
+
+        // Clean CartoDB Positron tiles for high readability
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          maxZoom: 19,
+          subdomains: 'abcd',
+        }).addTo(map);
+
+        markersLayer = L.layerGroup().addTo(map);
+        drawRadiusCircle();
+      } catch (err) {
+        console.error("Map initialization failed", err);
+      }
+    }
+
+    function drawRadiusCircle() {
+      if (!map) return;
+      if (radiusCircleLayer) {
+        map.removeLayer(radiusCircleLayer);
+      }
+
+      // Convert miles to meters: 1 mile = 1609.34 meters
+      const radiusMeters = state.radiusMiles * 1609.34;
+
+      radiusCircleLayer = L.circle(state.centerCoords, {
+        color: '#059669',
+        fillColor: '#10b981',
+        fillOpacity: 0.12,
+        weight: 2,
+        dashArray: '4, 8'
+      }).addTo(map);
+
+      // Fit map bounds to encompass radius
+      map.fitBounds(radiusCircleLayer.getBounds(), { padding: [20, 20] });
+      document.getElementById('map-radius-badge').textContent = `${state.radiusMiles} Mile Radius Zone`;
+    }
+
+    function updateMapPins() {
+      if (!markersLayer) return;
+      markersLayer.clearLayers();
+
+      const filtered = getFilteredProperties();
+
+      filtered.forEach(prop => {
+        const isSelected = state.activeProperty && state.activeProperty.id === prop.id;
+        const priceLabel = state.mode === 'buy' ? `$${(prop.priceBuy / 1000).toFixed(0)}k` : `$${prop.priceRent}/mo`;
+
+        // Color coding pin by disclosure score
+        let badgeColor = "bg-emerald-600 border-emerald-700";
+        if (prop.score < 85) badgeColor = "bg-amber-600 border-amber-700";
+        if (prop.score < 75) badgeColor = "bg-rose-600 border-rose-700";
+
+        const iconHtml = `
+          <div class="px-2 py-1 rounded-full text-white font-bold text-[11px] shadow-lg border cursor-pointer transition-transform transform hover:scale-110 flex items-center space-x-1 ${badgeColor}">
+            <span>${priceLabel}</span>
+          </div>
+        `;
+
+        const customIcon = L.divIcon({
+          html: iconHtml,
+          className: 'custom-map-marker',
+          iconSize: [60, 26],
+          iconAnchor: [30, 13]
+        });
+
+        const marker = L.marker([prop.lat, prop.lng], { icon: customIcon });
+
+        // Popup content
+        const popupContent = `
+          <div class="w-64 p-3 font-sans">
+            <img src="${prop.image}" class="w-full h-28 object-cover rounded-lg mb-2" onerror="this.src='https://placehold.co/600x400/e2e8f0/475569?text=Home'"/>
+            <div class="text-sm font-bold text-slate-900">${prop.address}</div>
+            <div class="text-xs text-slate-500">${prop.beds}b • ${prop.baths}ba • ${prop.sqft} sqft</div>
+            <div class="mt-1 flex items-center justify-between">
+              <span class="font-extrabold text-emerald-700">${priceLabel}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-sm bg-slate-100 text-slate-700 font-semibold">Audit: ${prop.score}/100</span>
+            </div>
+            <button onclick="openPropertyModalById('${prop.id}')" class="mt-2 w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg text-center">
+              View Disclosures & Pros/Cons
+            </button>
+          </div>
+        `;
+
+        marker.bindPopup(popupContent);
+        markersLayer.addLayer(marker);
+      });
+    }
+
+    function getFilteredProperties() {
+      return state.properties.filter(p => {
+        // Beds filter
+        if (state.minBeds !== 'any' && p.beds < parseInt(state.minBeds)) return false;
+        // Baths filter
+        if (state.minBaths !== 'any' && p.baths < parseInt(state.minBaths)) return false;
+        // Property type (Home Type)
+        if (state.propertyType !== 'any' && p.propertyType !== state.propertyType) return false;
+        // Budget
+        if (state.maxBudget !== 'any') {
+          const price = state.mode === 'buy' ? p.priceBuy : p.priceRent;
+          const max = parseInt(state.maxBudget);
+          if (state.mode === 'buy' && price > max) return false;
+          if (state.mode === 'rent' && price > (max / 250)) return false; // approximate ratio
+        }
+        // HOA filter
+        if (state.hoaFilter === 'no-hoa' && p.hoaFee > 0) return false;
+        if (state.hoaFilter === 'low-hoa' && p.hoaFee > 250) return false;
+        // Hazard filter
+        if (state.hazardFilter === 'safe-flood' && p.disclosures.floodZone.includes('AE')) return false;
+
+        return true;
+      }).sort((a, b) => {
+        if (state.sortBy === 'score') return b.score - a.score;
+        if (state.sortBy === 'price-asc') return (state.mode === 'buy' ? a.priceBuy - b.priceBuy : a.priceRent - b.priceRent);
+        if (state.sortBy === 'price-desc') return (state.mode === 'buy' ? b.priceBuy - a.priceBuy : b.priceRent - a.priceRent);
+        if (state.sortBy === 'sqft') return b.sqft - a.sqft;
+        if (state.sortBy === 'year') return b.yearBuilt - a.yearBuilt;
+        return 0;
+      });
+    }
+
+    /* Home Type Filter Selection Handling */
+    function selectHomeTypeFilter(type) {
+      state.propertyType = type;
+
+      // Update pill buttons visual state
+      document.querySelectorAll('.home-type-chip').forEach(chip => {
+        chip.className = "home-type-chip px-3 py-1 rounded-full text-xs font-medium shrink-0 transition bg-slate-100 hover:bg-slate-200 text-slate-700";
+      });
+      const activeChip = document.getElementById(`chip-type-${type}`);
+      if (activeChip) {
+        activeChip.className = "home-type-chip px-3 py-1 rounded-full text-xs font-semibold shrink-0 transition bg-emerald-600 text-white shadow-2xs";
+      }
+
+      // Sync the select dropdown in advanced filters
+      const selectType = document.getElementById('select-type');
+      if (selectType) {
+        selectType.value = type;
+      }
+
+      renderListings();
+      updateMapPins();
+      
+      const typeDisplay = type === 'any' ? 'All Home Types' : type.replace('-', ' ').toUpperCase();
+      showToast(`Filter applied: ${typeDisplay}`, 'info');
+    }
+
+    function syncHomeTypeFromSelect(type) {
+      selectHomeTypeFilter(type);
+    }
+
+    function renderListings() {
+      const container = document.getElementById('cards-grid');
+      const emptyState = document.getElementById('empty-state');
+      const filtered = getFilteredProperties();
+
+      document.getElementById('results-count').textContent = `${filtered.length} Properties Analyzed`;
+      document.getElementById('current-criteria-summary').textContent = `Within ${state.radiusMiles} mi of ${state.location} (${state.mode.toUpperCase()})`;
+
+      if (filtered.length === 0) {
+        container.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        emptyState.classList.add('flex');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      emptyState.classList.remove('flex');
+
+      container.innerHTML = filtered.map(prop => {
+        const isSaved = state.savedPropertyIds.has(prop.id);
+        const isCompared = state.comparePropertyIds.has(prop.id);
+        const price = state.mode === 'buy' ? `$${prop.priceBuy.toLocaleString()}` : `$${prop.priceRent.toLocaleString()}/mo`;
+        const estMonthly = state.mode === 'buy' ? `Est. $${Math.round(prop.priceBuy * 0.0055).toLocaleString()}/mo` : `Deposit: $${prop.priceRent}`;
+
+        // Risk badge
+        let riskColor = "bg-emerald-100 text-emerald-800 border-emerald-200";
+        let riskLabel = "Clear Disclosures";
+        if (prop.score < 85) {
+          riskColor = "bg-amber-100 text-amber-800 border-amber-200";
+          riskLabel = "Caution Flags";
+        }
+
+        return `
+          <div class="bg-white rounded-2xl border border-slate-200 hover:border-emerald-300 hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col group">
+            
+            <!-- Image Header -->
+            <div class="relative h-44 w-full overflow-hidden bg-slate-100">
+              <img src="${prop.image}" alt="${prop.address}" 
+                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                   onerror="this.src='https://placehold.co/600x400/e2e8f0/475569?text=Property+Photo'"/>
+              
+              <!-- Badges -->
+              <div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-900/80 backdrop-blur-md text-white">
+                  ${prop.propertyType.replace('-', ' ')}
+                </span>
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold border ${riskColor} bg-white/90 backdrop-blur-md">
+                  Audit ${prop.score}/100
+                </span>
+              </div>
+
+              <!-- Bookmark button -->
+              <button onclick="toggleSaveProperty('${prop.id}', event)" class="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-white/90 backdrop-blur-md hover:bg-white text-slate-700 shadow-sm transition">
+                <i data-lucide="heart" class="w-4 h-4 ${isSaved ? 'text-rose-500 fill-rose-500' : 'text-slate-600'}"></i>
+              </button>
+
+              <div class="absolute bottom-2 left-2.5 bg-slate-900/80 backdrop-blur-md text-white text-[11px] font-semibold px-2 py-0.5 rounded-md">
+                ${prop.hoaFee === 0 ? 'No HOA' : `HOA $${prop.hoaFee}/mo`}
+              </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="p-4 flex-1 flex flex-col justify-between">
+              <div>
+                <div class="flex items-baseline justify-between">
+                  <div class="text-xl font-display font-black text-slate-900">${price}</div>
+                  <div class="text-[11px] text-slate-500 font-medium">${estMonthly}</div>
+                </div>
+
+                <h3 class="font-bold text-xs text-slate-800 line-clamp-1 mt-1">${prop.address}</h3>
+                <div class="text-xs text-slate-500 flex items-center space-x-2 mt-0.5 font-medium">
+                  <span>${prop.beds} Beds</span>
+                  <span>•</span>
+                  <span>${prop.baths} Baths</span>
+                  <span>•</span>
+                  <span>${prop.sqft.toLocaleString()} sqft</span>
+                  <span>•</span>
+                  <span>Yr ${prop.yearBuilt}</span>
+                </div>
+
+                <!-- Disclosures Highlight Pill -->
+                <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center gap-1.5 text-[11px] text-slate-600">
+                  <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-blue-600 shrink-0"></i>
+                  <span class="truncate">${prop.disclosures.floodZone}</span>
+                </div>
+
+                <!-- Fast Pro & Con Snippet -->
+                <div class="mt-2 space-y-1 text-[11px]">
+                  <div class="flex items-start gap-1 text-emerald-800 line-clamp-1">
+                    <span class="text-emerald-600 font-bold shrink-0">✓</span>
+                    <span class="truncate">${prop.pros[0]}</span>
+                  </div>
+                  <div class="flex items-start gap-1 text-slate-600 line-clamp-1">
+                    <span class="text-rose-500 font-bold shrink-0">⚠</span>
+                    <span class="truncate">${prop.cons[0]}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card Actions -->
+              <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                <button onclick="toggleCompareProperty('${prop.id}', event)" class="px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1 transition ${isCompared ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}">
+                  <i data-lucide="scale" class="w-3.5 h-3.5"></i>
+                  <span>${isCompared ? 'Added' : 'Compare'}</span>
+                </button>
+
+                <button onclick="openPropertyModalById('${prop.id}')" class="flex-1 py-1.5 px-3 bg-slate-900 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition text-center flex items-center justify-center gap-1">
+                  <span>Full Disclosures</span>
+                  <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    function openPropertyModalById(id) {
+      const prop = state.properties.find(p => p.id === id);
+      if (!prop) return;
+
+      state.activeProperty = prop;
+
+      // Populate text & numbers
+      document.getElementById('modal-address').textContent = prop.address;
+      document.getElementById('modal-badge-type').textContent = prop.propertyType.replace('-', ' ');
+      document.getElementById('modal-badge-mode').textContent = state.mode === 'buy' ? 'For Sale' : 'For Rent';
+      document.getElementById('modal-specs').textContent = `${prop.beds} Beds • ${prop.baths} Baths • ${prop.sqft.toLocaleString()} sqft • Built ${prop.yearBuilt} • ${prop.lotSqft ? (prop.lotSqft/43560).toFixed(2) + ' Acre Lot' : 'Condo Unit'}`;
+      
+      const priceText = state.mode === 'buy' ? `$${prop.priceBuy.toLocaleString()}` : `$${prop.priceRent.toLocaleString()}/mo`;
+      document.getElementById('modal-price').textContent = priceText;
+      document.getElementById('modal-est-monthly').textContent = state.mode === 'buy' 
+        ? `Est. $${Math.round(prop.priceBuy * 0.0055).toLocaleString()}/mo (Mortgage, Tax, Insurance)` 
+        : `Security Deposit: $${prop.priceRent.toLocaleString()}`;
+
+      document.getElementById('modal-hoa').textContent = prop.hoaFee === 0 ? '$0 / month (No HOA)' : `$${prop.hoaFee} / month`;
+      document.getElementById('modal-tax').textContent = state.mode === 'buy' ? `1.25% ($${Math.round(prop.priceBuy * 0.0125).toLocaleString()}/yr)` : 'N/A (Included in Rent)';
+      document.getElementById('modal-psqft').textContent = state.mode === 'buy' ? `$${Math.round(prop.priceBuy / prop.sqft)} / sqft` : `$${(prop.priceRent / prop.sqft).toFixed(2)} / sqft / mo`;
+      document.getElementById('modal-score').textContent = `${prop.score} / 100`;
+      document.getElementById('modal-img').src = prop.image;
+
+      // Disclosures section
+      document.getElementById('modal-disc-flood').textContent = prop.disclosures.floodZone;
+      document.getElementById('modal-disc-fire').textContent = prop.disclosures.wildfire;
+      document.getElementById('modal-disc-permits').textContent = prop.disclosures.permits;
+      document.getElementById('modal-disc-hoa-rules').textContent = prop.disclosures.hoaRules;
+
+      // Pros & Cons lists
+      document.getElementById('modal-pros').innerHTML = prop.pros.map(pro => `
+        <li class="flex items-start gap-2">
+          <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5"></i>
+          <span>${pro}</span>
+        </li>
+      `).join('');
+
+      document.getElementById('modal-cons').innerHTML = prop.cons.map(con => `
+        <li class="flex items-start gap-2">
+          <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5"></i>
+          <span>${con}</span>
+        </li>
+      `).join('');
+
+      // Reset AI chat within modal
+      document.getElementById('property-ai-query').value = '';
+      document.getElementById('property-ai-response-box').classList.add('hidden');
+      document.getElementById('property-ai-response-box').innerHTML = '';
+
+      // Update bookmark icon state in modal
+      const isSaved = state.savedPropertyIds.has(prop.id);
+      const saveBtn = document.getElementById('modal-btn-save');
+      saveBtn.innerHTML = `<i data-lucide="heart" class="w-5 h-5 ${isSaved ? 'text-rose-500 fill-rose-500' : 'text-slate-600'}"></i>`;
+
+      // Show modal
+      document.getElementById('property-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closePropertyModal() {
+      document.getElementById('property-modal').classList.add('hidden');
+    }
+
+    async function executeSearch() {
+      const loc = document.getElementById('input-location').value.trim();
+      if (!loc) {
+        showToast("Please enter an address, city, or zip code.", "warning");
+        return;
+      }
+
+      state.location = loc;
+      state.radiusMiles = parseInt(document.getElementById('input-radius').value);
+      state.minBeds = document.getElementById('select-beds').value;
+      state.minBaths = document.getElementById('select-baths').value;
+      state.maxBudget = document.getElementById('select-budget').value;
+      state.propertyType = document.getElementById('select-type').value;
+      state.hoaFilter = document.getElementById('select-hoa').value;
+      state.hazardFilter = document.getElementById('select-hazard').value;
+
+      showToast(`Searching ${state.location} within ${state.radiusMiles} miles...`, "info");
+      
+      const searchBtn = document.getElementById('btn-search');
+      searchBtn.disabled = true;
+      searchBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Scanning County Records...</span>`;
+      lucide.createIcons();
+
+      try {
+        // Attempt AI generation of grounded realistic local listings for any provided city/address
+        await fetchAiGroundedListings(loc, state.radiusMiles, state.mode);
+      } catch (err) {
+        console.error("AI fetch failed, falling back to local dataset", err);
+        showToast("Using local verified disclosures cache.", "info");
+      } finally {
+        searchBtn.disabled = false;
+        searchBtn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i><span>Scan & Verify Disclosures</span>`;
+        lucide.createIcons();
+        renderListings();
+        updateMapPins();
+        drawRadiusCircle();
+      }
+    }
+
+    async function fetchAiGroundedListings(locationName, radius, mode) {
+      const apiKey = state.customApiKey || "";
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+      const systemPrompt = `You are a licensed Real Estate Attorney, Due Diligence Inspector, and Public Records Auditor.
+Given a location, search radius, and mode (Buy or Rent), generate an array of 4 to 6 realistic, highly specific home listings located in or adjacent to that target area.
+For each home, provide comprehensive public disclosures, hazard zones (FEMA flood zone, wildfire, seismic), municipal permit status, HOA regulations/fees, tax estimates, objective pros, and red flags / cons.
+You must return only valid JSON complying with the requested schema.`;
+
+      const userQuery = `Find and analyze 4 to 5 realistic homes for ${mode.toUpperCase()} within ${radius} miles of "${locationName}". Include bedrooms (1 to 4), bathrooms, prices reflective of the current market in that region, FEMA flood hazard zone (e.g. Zone X, Zone AE), wildfire risk, permit status, HOA restrictions, 3 pros, and 3 realistic cons/inspection red flags. Also provide approximate latitude and longitude coordinates near ${locationName}.`;
+
+      const payload = {
+        contents: [{ role: "user", parts: [{ text: userQuery }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        tools: [{ "google_search": {} }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                "id": { "type": "STRING" },
+                "address": { "type": "STRING" },
+                "city": { "type": "STRING" },
+                "state": { "type": "STRING" },
+                "lat": { "type": "NUMBER" },
+                "lng": { "type": "NUMBER" },
+                "priceBuy": { "type": "NUMBER" },
+                "priceRent": { "type": "NUMBER" },
+                "beds": { "type": "NUMBER" },
+                "baths": { "type": "NUMBER" },
+                "sqft": { "type": "NUMBER" },
+                "lotSqft": { "type": "NUMBER" },
+                "yearBuilt": { "type": "NUMBER" },
+                "propertyType": { "type": "STRING" },
+                "hoaFee": { "type": "NUMBER" },
+                "score": { "type": "NUMBER" },
+                "pros": {
+                  "type": "ARRAY",
+                  "items": { "type": "STRING" }
+                },
+                "cons": {
+                  "type": "ARRAY",
+                  "items": { "type": "STRING" }
+                },
+                "disclosures": {
+                  "type": "OBJECT",
+                  "properties": {
+                    "floodZone": { "type": "STRING" },
+                    "floodDetails": { "type": "STRING" },
+                    "wildfire": { "type": "STRING" },
+                    "permits": { "type": "STRING" },
+                    "hoaRules": { "type": "STRING" },
+                    "taxes": { "type": "STRING" },
+                    "leadRadon": { "type": "STRING" }
+                  },
+                  "required": ["floodZone", "floodDetails", "wildfire", "permits", "hoaRules"]
+                }
+              },
+              "required": ["id", "address", "lat", "lng", "priceBuy", "priceRent", "beds", "baths", "sqft", "yearBuilt", "propertyType", "hoaFee", "score", "pros", "cons", "disclosures"]
+            }
+          }
+        }
+      };
+
+      // Exponential backoff fetch
+      let attempt = 0;
+      let maxAttempts = 2;
+      let delay = 1000;
+
+      while (attempt < maxAttempts) {
+        try {
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+          const result = await response.json();
+          const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+          if (jsonText) {
+            const parsed = JSON.parse(jsonText);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              // Curate images and integrate
+              const curatedImages = [
+                "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80",
+                "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
+                "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
+                "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
+                "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80"
+              ];
+
+              state.properties = parsed.map((item, idx) => ({
+                ...item,
+                image: curatedImages[idx % curatedImages.length]
+              }));
+
+              // Center map on first property
+              if (parsed[0].lat && parsed[0].lng) {
+                state.centerCoords = [parsed[0].lat, parsed[0].lng];
+                if (map) map.panTo(state.centerCoords);
+              }
+
+              showToast(`Audited ${parsed.length} properties for ${locationName}`, "success");
+              return;
+            }
+          }
+          break;
+        } catch (err) {
+          attempt++;
+          if (attempt >= maxAttempts) throw err;
+          await new Promise(r => setTimeout(r, delay));
+          delay *= 2;
+        }
+      }
+    }
+
+    async function submitPropertyAiQuery() {
+      const input = document.getElementById('property-ai-query');
+      const query = input.value.trim();
+      if (!query || !state.activeProperty) return;
+
+      askPropertyInspector(query);
+    }
+
+    async function askPropertyInspector(promptQuestion) {
+      const prop = state.activeProperty;
+      if (!prop) return;
+
+      const responseBox = document.getElementById('property-ai-response-box');
+      const submitBtn = document.getElementById('btn-property-ai-submit');
+      
+      responseBox.classList.remove('hidden');
+      responseBox.innerHTML = `
+        <div class="flex items-center space-x-2 text-emerald-400 font-semibold py-1">
+          <i data-lucide="loader" class="w-4 h-4 animate-spin"></i>
+          <span>Auditing records with Gemini...</span>
+        </div>
+      `;
+      lucide.createIcons();
+
+      const apiKey = state.customApiKey || "";
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+      const systemPrompt = `You are a real estate disclosure specialist and property inspector. 
+Evaluate the user's inquiry regarding this specific property:
+Address: ${prop.address}
+Type: ${prop.propertyType}, Year Built: ${prop.yearBuilt}, Sqft: ${prop.sqft}, Beds: ${prop.beds}, Baths: ${prop.baths}.
+Price: $${prop.priceBuy}, HOA: $${prop.hoaFee}/mo.
+Disclosures on record: Flood Zone: ${prop.disclosures.floodZone}, Wildfire: ${prop.disclosures.wildfire}, Permits: ${prop.disclosures.permits}, HOA Rules: ${prop.disclosures.hoaRules}.
+Pros: ${prop.pros.join('; ')}.
+Cons: ${prop.cons.join('; ')}.
+Provide a concise, highly practical, objective answer with concrete next steps or inspection flags.`;
+
+      const payload = {
+        contents: [{ role: "user", parts: [{ text: promptQuestion }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] }
+      };
+
+      try {
+        const res = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (text) {
+          responseBox.innerHTML = `
+            <div class="space-y-1.5">
+              <div class="text-[11px] font-bold text-emerald-400 uppercase tracking-wide">Inspector Assessment:</div>
+              <div class="text-xs text-slate-200 leading-relaxed whitespace-pre-line">${escapeHtml(text)}</div>
+            </div>
+          `;
+        } else {
+          responseBox.innerHTML = `<span class="text-rose-400">Unable to generate assessment. Please try again.</span>`;
+        }
+      } catch (err) {
+        console.error("Inspector AI call error", err);
+        responseBox.innerHTML = `
+          <div class="text-xs text-slate-300">
+            <strong>Standard Pre-closing Protocol:</strong> Based on the ${prop.yearBuilt} build date in ${prop.city}, verify: (1) Main sewer line scoping for root intrusion, (2) Ground fault circuit interrupters (GFCI) in wet areas, (3) Water heater seismic double strapping, (4) City permit sign-off for electrical and room additions.
+          </div>
+        `;
+      }
+    }
+
+    function toggleSaveProperty(id, event) {
+      if (event) event.stopPropagation();
+      if (state.savedPropertyIds.has(id)) {
+        state.savedPropertyIds.delete(id);
+        showToast("Removed from saved list", "info");
+      } else {
+        state.savedPropertyIds.add(id);
+        showToast("Property bookmarked to saved list", "success");
+      }
+      updateStats();
+      renderListings();
+    }
+
+    function toggleSaveFromModal() {
+      if (!state.activeProperty) return;
+      toggleSaveProperty(state.activeProperty.id);
+      const isSaved = state.savedPropertyIds.has(state.activeProperty.id);
+      const saveBtn = document.getElementById('modal-btn-save');
+      saveBtn.innerHTML = `<i data-lucide="heart" class="w-5 h-5 ${isSaved ? 'text-rose-500 fill-rose-500' : 'text-slate-600'}"></i>`;
+      lucide.createIcons();
+    }
+
+    function toggleCompareProperty(id, event) {
+      if (event) event.stopPropagation();
+      if (state.comparePropertyIds.has(id)) {
+        state.comparePropertyIds.delete(id);
+        showToast("Removed from comparison", "info");
+      } else {
+        if (state.comparePropertyIds.size >= 4) {
+          showToast("You can compare a maximum of 4 properties at a time.", "warning");
+          return;
+        }
+        state.comparePropertyIds.add(id);
+        showToast("Added to side-by-side comparison", "success");
+      }
+      updateStats();
+      renderListings();
+    }
+
+    function addToCompareFromModal() {
+      if (!state.activeProperty) return;
+      toggleCompareProperty(state.activeProperty.id);
+      closePropertyModal();
+      toggleCompareDrawer();
+    }
+
+    function updateStats() {
+      // Saved badge
+      const savedCount = state.savedPropertyIds.size;
+      const savedBadge = document.getElementById('saved-badge');
+      if (savedCount > 0) {
+        savedBadge.textContent = savedCount;
+        savedBadge.classList.remove('hidden');
+      } else {
+        savedBadge.classList.add('hidden');
+      }
+
+      // Compare badge
+      const compareCount = state.comparePropertyIds.size;
+      const compareBadge = document.getElementById('compare-badge');
+      if (compareCount > 0) {
+        compareBadge.textContent = compareCount;
+        compareBadge.classList.remove('hidden');
+      } else {
+        compareBadge.classList.add('hidden');
+      }
+    }
+
+    function toggleCompareDrawer() {
+      const modal = document.getElementById('compare-modal');
+      const isHidden = modal.classList.contains('hidden');
+
+      if (isHidden) {
+        renderCompareTable();
+        modal.classList.remove('hidden');
+      } else {
+        modal.classList.add('hidden');
+      }
+    }
+
+    function renderCompareTable() {
+      const container = document.getElementById('compare-content');
+      const compared = state.properties.filter(p => state.comparePropertyIds.has(p.id));
+
+      if (compared.length === 0) {
+        container.innerHTML = `
+          <div class="py-12 text-center text-slate-400">
+            <i data-lucide="scale" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i>
+            <p class="text-sm font-semibold">No properties selected for comparison.</p>
+            <p class="text-xs">Click the "Compare" button on any property card to benchmark.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = `
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200">
+              <th class="py-3 px-3 font-bold text-slate-400 uppercase tracking-wider w-40">Attribute</th>
+              ${compared.map(p => `
+                <th class="py-3 px-3 font-display font-bold text-slate-900 min-w-[200px]">
+                  <div class="text-sm line-clamp-1">${p.address}</div>
+                  <div class="text-xs text-emerald-700 font-extrabold mt-0.5">
+                    ${state.mode === 'buy' ? '$' + p.priceBuy.toLocaleString() : '$' + p.priceRent.toLocaleString() + '/mo'}
+                  </div>
+                </th>
+              `).join('')}
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 text-slate-700">
+            <tr>
+              <td class="py-2.5 px-3 font-semibold text-slate-500">Property Type</td>
+              ${compared.map(p => `<td class="py-2.5 px-3 capitalize">${p.propertyType.replace('-', ' ')}</td>`).join('')}
+            </tr>
+            <tr>
+              <td class="py-2.5 px-3 font-semibold text-slate-500">Beds / Baths</td>
+              ${compared.map(p => `<td class="py-2.5 px-3">${p.beds} Beds • ${p.baths} Baths</td>`).join('')}
+            </tr>
+            <tr>
+              <td class="py-2.5 px-3 font-semibold text-slate-500">Square Feet</td>
+              ${compared.map(p => `<td class="py-2.5 px-3">${p.sqft.toLocaleString()} sqft ($${Math.round(p.priceBuy/p.sqft)}/sqft)</td>`).join('')}
+            </tr>
+            <tr>
+              <td class="py-2.5 px-3 font-semibold text-slate-500">Year Built</td>
+              ${compared.map(p => `<td class="py-2.5 px-3">${p.yearBuilt}</td>`).join('')}
+            </tr>
+            <tr>
+              <td class="py-2.5 px-3 font-semibold text-slate-500">Due Diligence Score</td>
+              ${compared.map(p => `<td class="py-2.5 px-3 font-bold text-emerald-600">${p.score} / 100</td>`).join('')}
+            </tr>
+            <tr>
+              <td class="py-2.5 px-3 font-semibold text-slate-500">HOA Dues</td>
+              ${compared.map(p => `<td class="py-2.5 px-3">${p.hoaFee === 0 ? 'No HOA' : '$' + p.hoaFee + '/month'}</td>`).join('')}
+            </tr>
+            <tr class="bg-slate-50/50">
+              <td class="py-2.5 px-3 font-semibold text-slate-500">FEMA Flood Zone</td>
+              ${compared.map(p => `<td class="py-2.5 px-3 font-medium">${p.disclosures.floodZone}</td>`).join('')}
+            </tr>
+            <tr class="bg-slate-50/50">
+              <td class="py-2.5 px-3 font-semibold text-slate-500">Wildfire Risk</td>
+              ${compared.map(p => `<td class="py-2.5 px-3 font-medium">${p.disclosures.wildfire}</td>`).join('')}
+            </tr>
+            <tr class="bg-emerald-50/30">
+              <td class="py-2.5 px-3 font-semibold text-emerald-800">Key Pro</td>
+              ${compared.map(p => `<td class="py-2.5 px-3 text-emerald-800">✓ ${p.pros[0]}</td>`).join('')}
+            </tr>
+            <tr class="bg-rose-50/30">
+              <td class="py-2.5 px-3 font-semibold text-rose-800">Primary Red Flag</td>
+              ${compared.map(p => `<td class="py-2.5 px-3 text-rose-800">⚠ ${p.cons[0]}</td>`).join('')}
+            </tr>
+          </tbody>
+        </table>
+      `;
+    }
+
+    function clearComparison() {
+      state.comparePropertyIds.clear();
+      updateStats();
+      renderCompareTable();
+      renderListings();
+      showToast("Cleared comparison list", "info");
+    }
+
+    function toggleSavedModal() {
+      const modal = document.getElementById('saved-modal');
+      const isHidden = modal.classList.contains('hidden');
+      if (isHidden) {
+        renderSavedList();
+        modal.classList.remove('hidden');
+      } else {
+        modal.classList.add('hidden');
+      }
+    }
+
+    function renderSavedList() {
+      const container = document.getElementById('saved-list-container');
+      const savedCount = state.savedPropertyIds.size;
+      document.getElementById('saved-count-text').textContent = savedCount;
+
+      if (savedCount === 0) {
+        container.innerHTML = `
+          <div class="py-10 text-center text-slate-400">
+            <i data-lucide="heart" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i>
+            <p class="text-xs font-semibold">No saved properties yet.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      const savedProps = state.properties.filter(p => state.savedPropertyIds.has(p.id));
+      container.innerHTML = savedProps.map(p => `
+        <div class="p-3 rounded-2xl border border-slate-200 flex items-center justify-between hover:bg-slate-50 transition">
+          <div class="flex items-center space-x-3">
+            <img src="${p.image}" class="w-16 h-16 rounded-xl object-cover" onerror="this.src='https://placehold.co/100x100'"/>
+            <div>
+              <div class="text-xs font-bold text-slate-900">${p.address}</div>
+              <div class="text-[11px] text-slate-500">${p.beds} Beds • ${p.baths} Baths • ${p.sqft} sqft</div>
+              <div class="text-xs font-extrabold text-emerald-700 mt-0.5">
+                ${state.mode === 'buy' ? '$' + p.priceBuy.toLocaleString() : '$' + p.priceRent.toLocaleString() + '/mo'}
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="openPropertyModalById('${p.id}'); toggleSavedModal();" class="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold">
+              View
+            </button>
+            <button onclick="toggleSaveProperty('${p.id}'); renderSavedList();" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
+
+      lucide.createIcons();
+    }
+
+    function setMode(newMode) {
+      state.mode = newMode;
+      const buyBtn = document.getElementById('nav-btn-buy');
+      const rentBtn = document.getElementById('nav-btn-rent');
+
+      if (newMode === 'buy') {
+        buyBtn.className = "px-4 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white text-slate-900 shadow-xs";
+        rentBtn.className = "px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition-all";
+      } else {
+        rentBtn.className = "px-4 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white text-slate-900 shadow-xs";
+        buyBtn.className = "px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition-all";
+      }
+
+      renderListings();
+      updateMapPins();
+      showToast(`Switched mode to: ${newMode.toUpperCase()}`, "info");
+    }
+
+    function setViewMode(mode) {
+      state.viewMode = mode;
+      const listCol = document.getElementById('listings-container-col');
+      const mapCol = document.getElementById('map-container-col');
+
+      const splitBtn = document.getElementById('view-btn-split');
+      const listBtn = document.getElementById('view-btn-list');
+      const mapBtn = document.getElementById('view-btn-map');
+
+      [splitBtn, listBtn, mapBtn].forEach(b => {
+        b.className = "px-2.5 py-1 bg-white text-slate-600 hover:bg-slate-50";
+      });
+
+      if (mode === 'split') {
+        splitBtn.className = "px-2.5 py-1 bg-slate-200 text-slate-800 font-medium";
+        listCol.className = "lg:col-span-7 flex flex-col space-y-4 overflow-y-auto max-h-[calc(100vh-270px)] pr-1";
+        mapCol.className = "lg:col-span-5 flex flex-col h-[400px] lg:h-[calc(100vh-270px)] sticky top-24";
+      } else if (mode === 'list') {
+        listBtn.className = "px-2.5 py-1 bg-slate-200 text-slate-800 font-medium";
+        listCol.className = "lg:col-span-12 flex flex-col space-y-4 pr-1";
+        mapCol.className = "hidden";
+      } else if (mode === 'map') {
+        mapBtn.className = "px-2.5 py-1 bg-slate-200 text-slate-800 font-medium";
+        listCol.className = "hidden";
+        mapCol.className = "lg:col-span-12 flex flex-col h-[calc(100vh-250px)]";
+      }
+
+      if (map) {
+        setTimeout(() => map.invalidateSize(), 200);
+      }
+    }
+
+    function updateRadiusLabel(val) {
+      document.getElementById('radius-val').textContent = `${val} mi`;
+      state.radiusMiles = parseInt(val);
+      drawRadiusCircle();
+    }
+
+    function toggleAdvancedFilters() {
+      const adv = document.getElementById('advanced-filters');
+      adv.classList.toggle('hidden');
+    }
+
+    function sortListings(val) {
+      state.sortBy = val;
+      renderListings();
+    }
+
+    function applyPresetLocation(locName, lat, lng) {
+      document.getElementById('input-location').value = locName;
+      state.location = locName;
+      state.centerCoords = [lat, lng];
+      if (map) map.setView([lat, lng], 12);
+      executeSearch();
+    }
+
+    function useCurrentLocation() {
+      if (navigator.geolocation) {
+        showToast("Locating your coordinates...", "info");
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            state.centerCoords = [pos.coords.latitude, pos.coords.longitude];
+            document.getElementById('input-location').value = "Current Location";
+            state.location = "Current Location";
+            if (map) map.setView(state.centerCoords, 13);
+            executeSearch();
+          },
+          (err) => {
+            showToast("Could not access GPS location. Using default location.", "warning");
+          }
+        );
+      } else {
+        showToast("Geolocation not supported by browser.", "warning");
+      }
+    }
+
+    function resetFilters() {
+      document.getElementById('select-beds').value = "any";
+      document.getElementById('select-baths').value = "any";
+      document.getElementById('select-budget').value = "any";
+      document.getElementById('select-type').value = "any";
+      selectHomeTypeFilter('any');
+      document.getElementById('select-hoa').value = "any";
+      document.getElementById('select-hazard').value = "any";
+      document.getElementById('input-radius').value = 15;
+      updateRadiusLabel(15);
+      executeSearch();
+    }
+
+    function resetToHome() {
+      document.getElementById('input-location').value = "San Jose, CA";
+      applyPresetLocation("San Jose, CA", 37.3382, -121.8863);
+    }
+
+    function downloadPropertySummary() {
+      const prop = state.activeProperty;
+      if (!prop) return;
+
+      const reportContent = `
+========================================================================
+HOMEPULSE AI - PROPERTY DUE DILIGENCE & PUBLIC DISCLOSURE DOSSIER
+Generated: ${new Date().toLocaleString()}
+========================================================================
+
+PROPERTY OVERVIEW:
+Address:        ${prop.address}
+City, State:    ${prop.city}, ${prop.state}
+Target Mode:    ${state.mode.toUpperCase()}
+List Price:     ${state.mode === 'buy' ? '$' + prop.priceBuy.toLocaleString() : '$' + prop.priceRent + '/mo'}
+Specifications: ${prop.beds} Beds | ${prop.baths} Baths | ${prop.sqft} SqFt
+Year Built:     ${prop.yearBuilt}
+Due Diligence:  ${prop.score} / 100 Safety Index
+
+MUNICIPAL & ENVIRONMENTAL DISCLOSURES:
+- Flood Zone:   ${prop.disclosures.floodZone} (${prop.disclosures.floodDetails})
+- Wildfire:     ${prop.disclosures.wildfire}
+- HOA Rules:    ${prop.disclosures.hoaRules} (Monthly Fee: $${prop.hoaFee})
+- City Permits: ${prop.disclosures.permits}
+- Tax History:  ${prop.disclosures.taxes}
+- Environmental:${prop.disclosures.leadRadon}
+
+OBJECTIVE PROS & ADVANTAGES:
+${prop.pros.map(p => ` [✓] ${p}`).join('\n')}
+
+RED FLAGS & DUE DILIGENCE CHECKLIST:
+${prop.cons.map(c => ` [!] ${c}`).join('\n')}
+
+========================================================================
+Report compiled via HomePulse AI Public Registry Scanner.
+`;
+
+      const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Due_Diligence_${prop.address.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showToast("Dossier exported to text summary", "success");
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      let border = "border-slate-200 bg-white text-slate-800";
+      let icon = "info";
+      if (type === 'success') {
+        border = "border-emerald-200 bg-emerald-50 text-emerald-900";
+        icon = "check-circle";
+      } else if (type === 'warning') {
+        border = "border-amber-200 bg-amber-50 text-amber-900";
+        icon = "alert-triangle";
+      }
+
+      toast.className = `p-3 rounded-xl border shadow-lg text-xs font-semibold flex items-center space-x-2 transition-all duration-300 pointer-events-auto transform translate-y-2 opacity-0 ${border}`;
+      toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 shrink-0"></i><span>${message}</span>`;
+      
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 50);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    function openApiSettingsModal() {
+      document.getElementById('custom-api-key').value = state.customApiKey;
+      document.getElementById('api-modal').classList.remove('hidden');
+    }
+
+    function toggleIosInstallModal() {
+      const modal = document.getElementById('ios-install-modal');
+      modal.classList.toggle('hidden');
+    }
+
+    function closeApiSettingsModal() {
+      document.getElementById('api-modal').classList.add('hidden');
+    }
+
+    function saveApiSettings() {
+      state.customApiKey = document.getElementById('custom-api-key').value.trim();
+      closeApiSettingsModal();
+      showToast("AI engine preferences updated", "success");
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, function(m) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        }[m];
+      });
+    }
+  </script>
+</body>
+</html>

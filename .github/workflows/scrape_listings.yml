@@ -1,0 +1,31 @@
+name: Scrape Redfin & Zillow Property Feeds
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 8 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Redfin & Zillow Feed Scraper
+        run: python3 scraper.py
+
+      - name: Commit and push updated listings
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/listings.json
+          git diff --staged --quiet || (git commit -m "Update real estate listings feed" && git push)

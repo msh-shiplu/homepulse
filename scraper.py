@@ -467,7 +467,7 @@ def fetch_region_sales(region):
         state = h.get("state", "")
         zip_code = h.get("zip") or h.get("postalCode", {}).get("value", "")
 
-        if not (ds and mls and price and sqft and beds is not None and baths is not None and lat and lng and street):
+        if not (ds and ds != 223 and mls and price and sqft and beds is not None and baths is not None and lat and lng and street):
             continue
 
         photos = build_sale_photos(ds, mls, h.get("numPictures", 1))
